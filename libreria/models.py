@@ -116,7 +116,7 @@ class Factura(models.Model):
     numero_factura = models.AutoField(primary_key=True)  # Auto-incrementable
     fecha_publicacion = models.DateTimeField(default=timezone.now)
     habilitada = models.BooleanField(default=True)
-
+    proveedor = models.ForeignKey('Proveedor', on_delete=models.CASCADE, null=True, blank=True)
     def __str__(self):
         return f"Factura #{self.numero_factura} - {self.descripcion[:50]}"
     

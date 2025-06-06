@@ -44,7 +44,7 @@ from .models import Factura
 class FacturaForm(forms.ModelForm):
     class Meta:
         model = Factura
-        fields = ['imagen', 'descripcion', 'fecha_publicacion']
+        fields = ['proveedor', 'imagen', 'descripcion', 'fecha_publicacion'] 
         def __init__(self, *args, **kwargs):
             super(FacturaForm, self).__init__(*args, **kwargs)
             self.fields['descripcion'].widget.attrs.update({'class': 'form-control'})

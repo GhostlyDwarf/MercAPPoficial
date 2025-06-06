@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from .forms import ProductoForm
+from libreria.decorators import registrar_actividad_json
 from django.contrib.auth import authenticate, login
 from libreria.backends import CustomClienteBackend
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, CustomUserChangeForm,EditarPerfilClienteForm
@@ -36,6 +37,7 @@ from libreria.decorators import admin_required,Rcontraseña
 from libreria.decorators import verificar_rol_requerido 
 from libreria.decorators import  registrar_agregado_carrito
 from libreria.decorators import Base_datos
+from django.views.decorators.cache import never_cache
 
 # ----------------------------------
 #---- REGISTRO PARA EL ADMINISTRADOR Y EMPLEADO
@@ -74,7 +76,7 @@ def register_cliente(request):
 # -------------------LOGEO PARA EL ADMINITSARDOR Y EMPLEADO---------------------------
 # AQUI CUANDO INGRESE EL USUARIO POR SU ROL, SEA ENVIADO A SU RESPECTIVO DASHBOARD
 #-------------------------------------------------------------------------
-
+@never_cache
 def login_view(request):
     error_message = ''
     if request.method == 'POST':
@@ -102,6 +104,7 @@ def login_view(request):
 # LOGEO DEL CLIENTE
 # AQUI EL CLIENTE SE LOGEA, SE CREO UN ARCHIVO LLAMDA BACKENDS.PY PARA VALIDAR QUE EL USUARIO ESTA REGISTRADO ,EN LA BASE DE DATOS Y QUE SU ROL ES CLIENTE, SI NO LO ES NO SE LE PERMITE EL ACCESO
 #----------------------------------------------------
+@never_cache
 
 def login_cliente_view(request):
     error_message = ''
@@ -211,6 +214,8 @@ def editar_cliente(request, cliente_id):
 # --------------------------------------------------------------------
 #CERRAR CESION DE AMBOS LOGEOS, AQUI EL EMPELADO , ADMIN Y CLIENTE CIERRAN SESION, SE REDIRECCIONA A LA PRINCIPAL
 #--------------------------------------------------------------------
+@never_cache
+
 def logout_view(request):
     logout(request)
     return redirect('Principal')
@@ -890,8 +895,6 @@ def finalizar_compra(request):
         messages.success(request, "Compra finalizada con éxito.")
         return redirect('detalle_compra', compra_id=compra.id)
 
-    # <-- ESTE BLOQUE ES EL QUE FALTABA
-    # Si la petición es GET y el carrito tiene productos, renderiza el carrito normalmente
     return render(request, 'accounts/Carrito.html', {
         'order': order,
         'order_products': order.orderproduct_set.all(),
@@ -1025,9 +1028,8 @@ def validacion_compras_emple(request):
     compras = ResumenCompra.objects.prefetch_related('orderproduct_set__product').all()
     return render(request, 'accounts/ESTADO_COMPRA.html', {'compras': compras})
 
-
-
-from libreria.decorators import registrar_actividad_json
+from django.core.mail import send_mail
+from django.conf import settings
 
 @registrar_actividad_json(
     accion="Marcar compra como pagada",
@@ -1038,6 +1040,20 @@ def marcar_pagada(request, compra_id):
     compra = get_object_or_404(ResumenCompra, id=compra_id)
     compra.pagada = True
     compra.save()
+    # Enviar correo al cliente
+    cliente = compra.cliente
+    if hasattr(cliente, 'email') and cliente.email:
+        if compra.forma_entrega == 'domicilio':
+            mensaje = "Su pago ha sido validado. Su pedido será entregado a domicilio en el transcurso de la semana."
+        else:
+            mensaje = "Su pago ha sido validado. Puede recoger su pedido en nuestro puesto."
+        send_mail(
+            subject="Estado de su compra en MercaApp",
+            message=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[cliente.email],
+            fail_silently=True,
+        )
     return JsonResponse({'success': True, 'message': 'La compra se marcó como pagada.'})
 
 @registrar_actividad_json(
@@ -1049,12 +1065,23 @@ def marcar_no_pagada(request, compra_id):
     compra = get_object_or_404(ResumenCompra, id=compra_id)
     compra.pagada = False
     compra.save()
-    return JsonResponse({'success': True, 'message': 'La compra se marcó como no pagada.'})
-
+    # Enviar correo al cliente
+    cliente = compra.cliente
+    if hasattr(cliente, 'email') and cliente.email:
+        mensaje = "Su pedido está pendiente. Le enviaremos una notificación cuando se haya validado el pago."
+        send_mail(
+            subject="Estado de su compra en MercaApp",
+            message=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[cliente.email],
+            fail_silently=False,
+        )
+    return JsonResponse({'success': False, 'message': 'La compra se marcó como no pagada.'})
 # ---------------------------------
 # VISTA PARA LA RECUPERACION DE CONTRASEÑA
 # ---------------------------------
 
+@never_cache
 
 def recu_contra(request):
     if request.method == 'POST':

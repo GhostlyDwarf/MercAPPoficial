@@ -418,6 +418,7 @@
                                 {% for factura in facturas %}
                                     <div class="factura-card" onclick="mostrarModal('{{ factura.numero_factura }}')">
                                         <h5>Factura #{{ factura.numero_factura }}</h5>
+                                        <p><strong>Proveedor:</strong> {{ factura.proveedor.nombre }}</p>
                                         <p><strong>Descripción:</strong> {{ factura.descripcion|truncatechars:50 }}</p>
                                         <p><strong>Fecha:</strong> {{ factura.fecha_publicacion|date:"d/m/Y H:i" }}</p>
                                         <p>
